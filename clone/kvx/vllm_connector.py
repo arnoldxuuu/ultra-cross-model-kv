@@ -264,12 +264,14 @@ class CrossModelConnector(KVConnectorBase_V1):
         scfg = AutoConfig.from_pretrained(self.src_name)
         if getattr(self, "yarn", 0.0) > 0:
             apply_yarn(scfg, self.yarn, self.orig_ctx)
-        if getattr(scfg, "text_config", None) is not None and "ConditionalGeneration" in ((scfg.architectures or [""])[0]):
+        if getattr(scfg, "text_config", None) is not None and "ConditionalGeneration" in (scfg.architectures or [""])[0]:
             # multimodal checkpoint (Ministral 3, Gemma 3/4): the text decoder behind the TextLM view (vision unused)
             from transformers import AutoModelForImageTextToText
             from .models import TextLM
-            self.S = TextLM(AutoModelForImageTextToText.from_pretrained(self.src_name, dtype=torch.bfloat16,
-                                                                        attn_implementation="sdpa")).to(device).eval()
+            if getattr(self, "yarn", 0.0) > 0:
+                apply_yarn(scfg.text_config, self.yarn, self.orig_ctx)
+            self.S = TextLM(AutoModelForImageTextToText.from_pretrained(
+                self.src_name, config=scfg, dtype=torch.bfloat16, attn_implementation="sdpa")).to(device).eval()
         else:
             self.S = AutoModelForCausalLM.from_pretrained(self.src_name, config=scfg, dtype=torch.bfloat16,
                                                           attn_implementation="sdpa").to(device).eval()
@@ -404,6 +406,7 @@ class CrossModelConnector(KVConnectorBase_V1):
         self.H, self.D = mp["k"][0]["H"] // self.tp_size, mp["k"][0]["D"]
         del mp
         tcfg = AutoConfig.from_pretrained(self.tgt_name)
+        tcfg = getattr(tcfg, "text_config", None) or tcfg  # multimodal targets (Mistral Medium 3.5): text settings
         if getattr(self, "yarn", 0.0) > 0:
             apply_yarn(tcfg, self.yarn, self.orig_ctx)
         self.kw = None
@@ -469,8 +472,8 @@ class CrossModelConnector(KVConnectorBase_V1):
         # cuDNN SDPA first: 1.5x faster source prefill than torch's default pick (H100, 1.7B YaRN: 128K 7.35 -> 4.80 s)
         from torch.nn.attention import SDPBackend, sdpa_kernel
         order = [SDPBackend.CUDNN_ATTENTION, SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]
-        if getattr(self, "src_sdpa", "cudnn") != "cudnn" or torch.version.hip:  # no cuDNN on ROCm
-            order = order[1:]
+        if getattr(self, "src_sdpa", "cudnn") != "cudnn" or torch.version.hip or getattr(self, "_cudnn_bad", False):
+            order = order[1:]  # no cuDNN on ROCm, or it already failed in this session
         sc = int(getattr(self, "src_chunk", 0) or 0)
         lean = getattr(self, "lean", None)
         if lean is not None:  # plain-tensor forward: pre-RoPE K and V straight into per-layer buffers
@@ -490,16 +493,26 @@ class CrossModelConnector(KVConnectorBase_V1):
                 attn = mk(W)
             Ts = x.shape[1]
             lay_pre = lean.forward(x[0], self.cs[:Ts], self.ss[:Ts], attn, chunk=sc)
-        with sdpa_kernel(order, set_priority=True):
-            if lean is not None:
-                out = None
-            elif sc and x.shape[1] > sc:
-                from transformers import DynamicCache
-                pkv = DynamicCache()
-                for a in range(0, x.shape[1], sc):
-                    out = self.S(input_ids=x[:, a:a + sc], past_key_values=pkv, use_cache=True, logits_to_keep=1)
-            else:
-                out = self.S(input_ids=x, use_cache=True, logits_to_keep=1)
+
+        def _prefill(order_):
+            with sdpa_kernel(order_, set_priority=True):
+                if lean is not None:
+                    return None
+                if sc and x.shape[1] > sc:
+                    from transformers import DynamicCache
+                    pkv, o_ = DynamicCache(), None
+                    for a in range(0, x.shape[1], sc):
+                        o_ = self.S(input_ids=x[:, a:a + sc], past_key_values=pkv, use_cache=True, logits_to_keep=1)
+                    return o_
+                return self.S(input_ids=x, use_cache=True, logits_to_keep=1)
+        try:
+            out = _prefill(order)
+        except RuntimeError as e:  # sm_120 (RTX PRO 6000) + this cuDNN: fails at run time, e.g. SUBLIBRARY_LOADING_FAILED
+            if order[0] != SDPBackend.CUDNN_ATTENTION or "cuDNN" not in str(e):
+                raise
+            self._cudnn_bad = True
+            logger.warning("kvx connector: cuDNN SDPA failed (%s); source prefill falls back for this session", str(e)[:120])
+            out = _prefill(order[1:])
         T = len(ids)
         c_s, s_s = self.cs[:T].to(torch.bfloat16), self.ss[:T].to(torch.bfloat16)
         pre = lean is not None  # lay holds PRE-RoPE keys: nothing to unrope downstream

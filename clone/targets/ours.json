@@ -1,0 +1,208 @@
+[
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|ContractNLI|n=100|Mapped 4B\u219227B",
+  "ours": 0.757,
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|LongHealth|n=100|Mapped 4B\u219227B",
+  "ours": 0.845,
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|HumanEval|n=100 \u00b7 execution|Mapped 4B\u219227B",
+  "ours": 0.927,
+  "flag": "noise",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|BigCodeBench|n=100 \u00b7 execution|Mapped 4B\u219227B",
+  "ours": 0.56,
+  "flag": "noise",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|MATH-500|n=100 \u00b7 math_verify|Mapped 4B\u219227B",
+  "ours": 0.89,
+  "flag": "harness: their native .57",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|ARC-Chat|n=100|Mapped 4B\u219227B",
+  "ours": 0.97,
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|BAMBOO PaperQA|n=84 \u00b7 full population|Mapped 4B\u219227B",
+  "ours": 0.881,
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|MBPP|n=100 \u00b7 execution|Mapped 4B\u219227B",
+  "ours": 0.875,
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|QMSum|mapped n=95 \u00b7 native n=98|Mapped 4B\u219227B",
+  "ours": 0.365,
+  "flag": "harness: different LLM judge",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|Latest 10-benchmark suite|CowText|n=100 \u00b7 judge mean|Mapped 4B\u219227B",
+  "ours": null,
+  "reason": "dataset not public"
+ },
+ {
+  "id": "qwen-27|Agent benchmarks|\u03c42 Retail|mapped n=17 \u00b7 controls n=50|Mapped 4B\u219227B",
+  "ours": 0.78,
+  "flag": "harness: lighter setting, slower than native on retail",
+  "src": "xkv docs/agents.md"
+ },
+ {
+  "id": "qwen-27|Agent benchmarks|\u03c42 Airline|mapped n=17 \u00b7 controls n=50|Mapped 4B\u219227B",
+  "ours": 0.5,
+  "flag": "in-sample",
+  "src": "xkv docs/agents.md"
+ },
+ {
+  "id": "qwen-27|Agent benchmarks|\u03c42 Telecom|mapped n=17 \u00b7 controls n=50|Mapped 4B\u219227B",
+  "ours": 0.22,
+  "src": "xkv docs/agents.md"
+ },
+ {
+  "id": "qwen-27|Agent benchmarks|\u03c42 Overall|mapped n=51 \u00b7 controls n=150|Mapped 4B\u219227B",
+  "ours": 0.5,
+  "verdict": "NY",
+  "flag": "mean of 3; tie",
+  "src": "xkv"
+ },
+ {
+  "id": "qwen-27|Agent benchmarks|Terminal-Bench 2.0|early stop \u00b7 source n=11 \u00b7 mapped n=10|Mapped 4B\u219227B",
+  "ours": 0.1,
+  "src": "xkv docs/agents.md"
+ },
+ {
+  "id": "qwen-27|2B \u2192 27B|ARC-Challenge|n=100|Generic finetuned adapter (2B\u219227B)",
+  "ours": 0.98,
+  "flag": "harness: ARC-Chat",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|2B \u2192 27B|ZebraLogic|n=100 \u00b7 reasoning on|Generic finetuned adapter (2B\u219227B)",
+  "ours": 0.75,
+  "flag": "noise",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|2B \u2192 27B|QuALITY|n=100|Generic finetuned adapter (2B\u219227B)",
+  "ours": 0.79,
+  "flag": "noise",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|2B \u2192 27B|retrieval|n=63|Generic finetuned adapter (2B\u219227B)",
+  "ours": 0.905,
+  "flag": "harness: whole RULER 4-16K, recall mode (slower)",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|2B \u2192 27B|MATH-500|n=100 \u00b7 math_verify|Generic finetuned adapter (2B\u219227B)",
+  "ours": 0.93,
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|2B \u2192 27B|LongBench v2|n=100|Generic finetuned adapter (2B\u219227B)",
+  "ours": 0.42,
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode (recall mode)"
+ },
+ {
+  "id": "qwen-27|4B \u2192 27B|ARC-Challenge|n=100|Generic finetuned adapter (4B\u219227B)",
+  "ours": 0.97,
+  "flag": "harness: ARC-Chat",
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "qwen-27|4B \u2192 27B|MATH-500|n=100 \u00b7 math_verify|Generic finetuned adapter (4B\u219227B)",
+  "ours": 0.89,
+  "src": "xkv (Magni) docs/benchmarks.md, fast mode"
+ },
+ {
+  "id": "ttft|qwen-27",
+  "ours": null,
+  "verdict": "B",
+  "flag": "own-native basis 2.4-3.1x vs their 2.6-2.8x; vs vLLM only 2.0-2.1x",
+  "src": "xkv docs/speed.md"
+ },
+ {
+  "id": "ttft|qwen-72",
+  "ours": null,
+  "verdict": "NY",
+  "flag": "32K 8.1x vs vLLM (1xB200); 128K 5.05x vs vLLM TP2; theirs 9.6x on HF",
+  "src": "L vllm-72b-fa3, vllm-72b-128k-tp2"
+ },
+ {
+  "id": "ttft|qwen-ladder",
+  "ours": null,
+  "verdict": "NY",
+  "flag": "1.7B->32B vs vLLM 5.1x@32K (H200), HF+FA2 6.2x@32K; theirs 8.4x HF",
+  "src": "R"
+ },
+ {
+  "id": "claim|C1",
+  "verdict": "B",
+  "flag": "-80% per 1M prefill tokens at 32K (H200 vLLM bs1)",
+  "src": "R Best serving"
+ },
+ {
+  "id": "claim|C2",
+  "verdict": "B",
+  "flag": "-80% (32B 32K) / -88% (72B 32K)",
+  "src": "R, L vllm-72b-fa3"
+ },
+ {
+  "id": "claim|C3",
+  "verdict": "NY",
+  "flag": "8.1x vs vLLM (72B 32K)",
+  "src": "L"
+ },
+ {
+  "id": "claim|C4",
+  "verdict": "NY",
+  "flag": "no number published; paper ridge 0.112 -> ours 0.045 (14B->32B)",
+  "src": "R"
+ },
+ {
+  "id": "claim|C5",
+  "verdict": "NY",
+  "flag": "drop-in vLLM v1 connector, not upstreamed",
+  "src": "kvx/vllm_connector.py"
+ },
+ {
+  "id": "claim|C7",
+  "verdict": "F",
+  "flag": "finding, not a contest"
+ },
+ {
+  "id": "claim|C8",
+  "ours": null,
+  "reason": "hosting price, not a transfer metric"
+ },
+ {
+  "id": "ttft-home|qwen-27-2b-1m",
+  "ours": null,
+  "reason": "their value is a projection (7.7x at 1M)"
+ },
+ {
+  "id": "ttft-home|gemma-e2b-31b",
+  "ours": null,
+  "verdict": "NM",
+  "flag": "illustrative on their side"
+ },
+ {
+  "id": "ttft-home|gemma-e4b-31b",
+  "ours": null,
+  "verdict": "NM",
+  "flag": "illustrative on their side"
+ }
+]

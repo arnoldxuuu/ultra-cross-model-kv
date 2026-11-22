@@ -1,6 +1,9 @@
 """TTFT on Modal: KVX_GPU=H100 modal run modal_ttft.py --maps-run q17-q32 --k 16 --lens 4096,8192,16384"""
 import json, os, time
-import modal
+try:
+    import modal
+except ImportError:  # rented box (run_local.py): no-op stand-in
+    from modal_fit_eval import modal
 
 GPU = os.environ.get("KVX_GPU", "H100")
 image = (

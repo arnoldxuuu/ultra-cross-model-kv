@@ -563,3 +563,21 @@ def test_kv_layout_h2_needs_backend():
     assert vc.kv_layout(kv, 2, 8, "ROCM_ATTN") == "split4"
     with pytest.raises(RuntimeError):
         vc.kv_layout(kv, 2, 8, "")
+
+
+def test_hfgen_oracle_mapping_equals_native_greedy():
+    """With an oracle kv_fn (the target's own pre-RoPE KV), mapped generation must equal native greedy exactly."""
+    from kvx.hfgen import make_hf_gen
+    m = _tiny_qwen3()
+    m.float()
+
+    def oracle(ids):
+        cos, sin = core.rope_cos_sin(m, ids.shape[1], "cpu")
+        K, V, _ = core.capture_kv(m, ids, cos, sin)
+        return K.float(), V.float()
+
+    native = make_hf_gen(m, oracle, tail=10 ** 9, min_len=10 ** 9)  # never maps
+    mapped = make_hf_gen(m, oracle, tail=3, min_len=4)
+    prompts = [torch.randint(0, 97, (n,)).tolist() for n in (5, 12, 20)]
+    a, b = native(prompts, 8), mapped(prompts, 8)
+    assert a == b, (a, b)

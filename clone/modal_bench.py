@@ -1,6 +1,9 @@
 """Benchmarks from saved maps (no refit): KVX_GPU=B200:2 modal run modal_bench.py --maps-run l8-l70 --k 20"""
 import json, os
-import modal
+try:
+    import modal
+except ImportError:  # rented box (run_local.py): no-op stand-in
+    from modal_fit_eval import modal
 
 GPU = os.environ.get("KVX_GPU", "L40S")
 image = (
