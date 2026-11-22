@@ -188,6 +188,39 @@ Commands run from this directory. Modal volume: `kvx`.
 
 ## Measured results
 
+### OneTriangle's suites, Qwen3-1.7B -> Qwen3-8B (EC2 g7e, 1x RTX PRO 6000 96 GB, spot $2.11/h, run ~$4.93)
+
+Maps: k24, 4000 mixed web+book calibration sequences, RMS key restore, fp8 dense mapper in vLLM 0.34 (FLASH_ATTN).
+Harness: `clone/kvx/oteval.py` (xkv `genevals` loaders and scorers), OneTriangle's n. Settings matched to theirs:
+long-document suites keep a 256-token native tail plus a 4-token sink template (OneTriangle computes the first token
+and the last k tokens natively); ARC-C, HellaSwag and PIQA are scored by log-likelihood (lm-eval style), which is what
+their natives match (their 8B ARC-C .555, ours .56).
+
+| suite (their n) | mapped | native | OneTriangle generic 1.7B->8B (their native) | verdict |
+|---|---:|---:|---:|---|
+| QuALITY (500) | **.674** | .756 | .595 / .63, ladder .635 (.77 / .838) | ahead |
+| BAMBOO PaperQA (84) | .798 | .845 | .77 / .845 (.87 / .893) | ahead of .77, behind .845 |
+| ContractNLI (500) | .586 | .69 | .635 / .672 (.635 / .758) | behind |
+| LongBench v2 (97, 32K window) | .278 | .371 | .33 / .299 (.445 / .454) | behind |
+| ARC-C, log-likelihood (500) | .466 | .56 | .48, ladder .455 (.555 / .54) | ahead of ladder, behind generic |
+| HellaSwag, log-likelihood (500) | .584 | .65 | .685 (.745) | behind |
+| PIQA, log-likelihood (500) | .764 | .776 | .775 (.79) | behind, within noise |
+| ZebraLogic, thinking off (200) | .215 | .25 | .185 (.79) | ahead (their native suggests reasoning on) |
+| ZebraLogic, thinking on, 12K tokens (200) | .50 | .855 | ladder .555 (.81) | behind |
+| MATH-500, thinking off / on (500) | .778 / .778 | .838 / .798 | ladder .82 / .925 (.85 / .94) | behind |
+
+TTFT, one request at a time, same GPU and boot:
+
+| prompt | HF native -> mapped | vLLM 0.34 native -> mapped | OneTriangle (HF) |
+|---|---|---|---|
+| 8K | 0.490 -> 0.270 s (1.81x) | 0.387 -> 0.234 s (1.66x) | 1.92x |
+| 16K | 1.075 -> 0.606 s (1.77x) | 0.901 -> 0.570 s (1.58x) | 2.29x |
+| 32K | 2.615 -> 1.401 s (1.87x) | 2.313 -> 1.341 s (1.72x) | 2.55x |
+
+Reading: plain ridge maps beat OneTriangle's KL-distilled generic adapter on QuALITY and match it on BAMBOO, but lose
+on ContractNLI, LongBench v2 and HellaSwag; on this pair the 1.7B prefill is a third of the 8B's native prefill at 32K,
+which caps the speedup. Next levers: KL map distillation (xkv's works) and a sparse k16 mapper.
+
 ### Qwen2.5-3B -> Qwen2.5-72B in vLLM (OneTriangle's 9.6x pair; Modal B200, FLASH_ATTN on both sides, one request at a time)
 
 | Prompt | Native vLLM | Mapped (fp8 k16 maps, sink template, 256-token native tail) | Speedup |
