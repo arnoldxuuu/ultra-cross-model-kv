@@ -252,6 +252,23 @@ ran out of memory at 0.80/0.85 utilization even with 8-layer mapper chunks: with
 with KV cache (65 GB for the 4B) and leaves the connector about 19 GB, while it needs about 25 GB at 32K tokens. The
 8B ran at 0.70; the 32B fits at 0.80 because its weights take most of the share. Rerun them at about 0.60.
 
+### Prefill throughput and $/1M prompt tokens at concurrency > 1 (EC2 g7e spot, 1x RTX PRO 6000, $2.31/h)
+
+`clone/kvx/throughput.py`: closed batches of c requests of random tokens (no prefix reuse), one output token, native
+vLLM 0.34 vs the connector on the same box and boot; median of 3 batches after a warm-up. Maps k24 (fp8 mapper),
+64-token native tail + sink template. $/1M = box $/h / (prompt tokens/s x 3600) x 1e6.
+
+| pair | prompt | c | native tok/s | mapped tok/s | throughput | $/1M prompt tokens native -> mapped |
+|---|---|---:|---:|---:|---:|---|
+| Qwen3-1.7B -> 14B | 8K | 1 / 4 / 16 | 12,146 / 12,155 / 12,042 | 33,020 / 35,904 / 37,164 | 2.7x / 3.0x / **3.1x** | $0.053 -> $0.017 (c=16) |
+| Qwen3-1.7B -> 14B | 16K | 1 / 4 / 8 | 10,566 / 10,588 / 10,556 | 30,218 / 31,329 / 31,657 | 2.9x / 3.0x / 3.0x | $0.061 -> $0.020 (c=8) |
+| Qwen3-1.7B -> 14B | 32K | 1 | 8,560 | 26,028 | 3.0x | $0.075 -> $0.025 |
+| Qwen3-1.7B -> 32B | 8K | 1 / 2 / 4 | 5,106 / 5,096 / 5,066 | 25,867 / 26,490 / 28,955 | 5.1x / 5.2x / **5.7x** | $0.127 -> $0.022 (c=4) |
+
+Native prefill is compute-bound at c=1 already (tokens/s flat in c); the mapped path gains a little with c as the
+source prefill and mapper GEMMs fill the GPU. The 32B leaves ~8 GB of KV cache next to its weights on one 96 GB GPU, so
+c stops at 4 for 8K prompts. Run id g7e-tp ($5.46 for the whole box, which also ran LongBench and DevEval arms).
+
 ### Qwen2.5-3B -> Qwen2.5-72B in vLLM (OneTriangle's 9.6x pair; Modal B200, FLASH_ATTN on both sides, one request at a time)
 
 | Prompt | Native vLLM | Mapped (fp8 k16 maps, sink template, 256-token native tail) | Speedup |
