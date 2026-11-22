@@ -110,6 +110,35 @@ def load_pg19_train(tok, n, L, per_book=8):
     return out
 
 
+# DevEval's 115 source repos (Source_Code/<topic>/<repo>): kept out of code calibration (the benchmark's own files)
+DEVEVAL_REPOS_FILE = os.environ.get("KVX_DEVEVAL_REPOS", "/vol/deveval/repos.txt")
+
+
+def load_code(tok, n, L, shards=(1, 2, 3)):
+    """n calibration sequences of L tokens from Python files (codeparrot/codeparrot-clean, train shards), files
+    concatenated per repo with blank lines; DevEval's repos excluded by name."""
+    from datasets import load_dataset
+    skip = set()
+    if os.path.exists(DEVEVAL_REPOS_FILE):
+        skip = {l.strip().lower() for l in open(DEVEVAL_REPOS_FILE) if l.strip()}
+    files = [f"https://huggingface.co/datasets/codeparrot/codeparrot-clean/resolve/main/file-{i:012d}.json.gz"
+             for i in shards]
+    ds = load_dataset("json", data_files=files, split="train", streaming=True)
+    out, buf, cur = [], [], None
+    for ex in ds:
+        repo = ex.get("repo_name", "")
+        if any(r in repo.lower().split("/")[-1] for r in skip):
+            continue
+        if repo != cur:
+            buf, cur = [], repo  # sequences stay inside one repo
+        buf += tok(ex["content"] + "\n\n", add_special_tokens=False)["input_ids"]
+        while len(buf) >= L:
+            out.append(buf[:L]); buf = buf[L:]
+            if len(out) >= n:
+                return out
+    return out
+
+
 def load_long(tok, n, Lx):
     """n sequences of Lx tokens: PG19 test books, else concatenated FineWeb-Edu docs."""
     from datasets import load_dataset
@@ -185,6 +214,13 @@ def fit_eval_impl(src: str, tgt: str, n_calib: int = 500, L: int = 1024, stride:
                                     torch.tensor(cached(tok, f"pg19train_{n_calib // 2}x{L}_bos{bos}",
                                                         lambda: load_pg19_train(tok, n_calib // 2, L, per_book=32)))]).tolist()
                          if calib_src == "mix" else
+                         torch.cat([torch.tensor(cached(tok, f"calib_{n_calib // 3}x{L}_bos{bos}",
+                                                        lambda: load_texts(tok, n_calib // 3, L, exclude=EVAL_DOCS))),
+                                    torch.tensor(cached(tok, f"pg19train_{n_calib // 3}x{L}_bos{bos}",
+                                                        lambda: load_pg19_train(tok, n_calib // 3, L, per_book=32))),
+                                    torch.tensor(cached(tok, f"code_{n_calib - 2 * (n_calib // 3)}x{L}_bos{bos}",
+                                                        lambda: load_code(tok, n_calib - 2 * (n_calib // 3), L)))]).tolist()
+                         if calib_src == "mixcode" else
                          load_concat(tok, n_calib, L) if calib_concat else
                          cached(tok, f"calib_{n_calib}x{L}_bos{bos}",
                                 lambda: load_texts(tok, n_calib, L, exclude=EVAL_DOCS, info=cinfo)))

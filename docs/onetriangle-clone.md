@@ -252,6 +252,29 @@ ran out of memory at 0.80/0.85 utilization even with 8-layer mapper chunks: with
 with KV cache (65 GB for the 4B) and leaves the connector about 19 GB, while it needs about 25 GB at 32K tokens. The
 8B ran at 0.70; the 32B fits at 0.80 because its weights take most of the share. Rerun them at about 0.60.
 
+### DevEval (code), OneTriangle's ladder rows (EC2 g7e spot, 1x RTX PRO 6000, $2.31/h)
+
+Harness: `clone/kvx/deveval.py` (generation) + `clone/kvx/deveval_eval.py` (pass@1 with seketeam/DevEval's semantics:
+splice the body at `body_position`, run the item's tests with `setup.py pytest`, restore the file) +
+`clone/box/deveval_setup.sh` (the authors' Python 3.9 environment on a throwaway CPU box; the tests run the repos'
+code). Prompts: DevEval's local-infilling instruction prompts (file above and below + the signature and docstring to
+complete; mean 4.5K tokens), chat template, greedy, 1024 new tokens, reasoning off. Items: 1497 of 1825 reference
+solutions pass in that environment (pip must be in the venv: `setup.py pytest` fetches each repo's test
+requirements); 500 sampled (seed 0) from those with prompts under ~28K tokens cover 78 repos (OneTriangle: 500 from 76).
+
+| target | native | mapped, web+book maps, tail 256 | mapped, web+book+Python maps, tail 256 / 1024 | OneTriangle ladder mapped (native) |
+|---|---:|---:|---:|---:|
+| Qwen3-4B | .372 | .210 | .292 / **.324** | .30 (.355) |
+| Qwen3-8B | .428 | | .354 / **.364** | .31 (.375) |
+| Qwen3-14B | .490 | .254 | .344 / **.410** | .34 (.415) |
+| Qwen3-32B | .518 | .258 | | .36 (.455) |
+
+Maps fit only on web text and books kept half the target's pass@1 on code. `calib_src=mixcode` (a third each of
+FineWeb-Edu, PG19 and Python files from codeparrot/codeparrot-clean, DevEval's 115 repos excluded by name) brings
+retention to 84-87% at a 1024-token native tail (the code right above the function sits mid-prompt, before the file
+below it). QuALITY with the same maps: 4B .626, 8B .684, 14B .684 (web+book maps: .650, .674, .686). Runs g7e-tp
+($5.46) and g7e-mixcode ($3.04); the CPU scoring box is a c7i.4xlarge at $0.71/h.
+
 ### Prefill throughput and $/1M prompt tokens at concurrency > 1 (EC2 g7e spot, 1x RTX PRO 6000, $2.31/h)
 
 `clone/kvx/throughput.py`: closed batches of c requests of random tokens (no prefix reuse), one output token, native
