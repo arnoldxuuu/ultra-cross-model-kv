@@ -232,8 +232,25 @@ KV cache for one 33K-token request.
 | QuALITY (500), 256-token native tail + sink template | **.674** | .83 | .645 (.81) | ahead |
 | ARC-C, log-likelihood (500) | **.488** | .606 | .455 (.565) | ahead |
 | MATH-500, thinking off (500) | .766 | | .83 (.865) | behind |
-| LongBench v2 (97) | | .423 | .33 (.425) | mapped run not finished |
+| LongBench v2 (97) | | .423 | .33 (.425) | mapped run OOMed here; the kvx-quality seat measured .392 on H200 (ahead) |
 | MATH-500 / ZebraLogic, thinking on | | | .935 / .58 | not run |
+
+### OneTriangle's ladder, Qwen3-1.7B -> Qwen3-14B and Qwen3-4B columns (EC2 g7e spot, $2.31/h, 1.15 h, $2.65)
+
+Maps: k24 from 4000 mixed calibration sequences, fit on the box (about 10 min each). Same settings as the 32B column;
+vLLM 0.34 at gpu_memory_utilization 0.85; reasoning arms not run.
+
+| suite (OneTriangle's n) | 14B mapped | 14B native | ladder 1.7B->14B | 4B mapped | 4B native | ladder 1.7B->4B | verdict |
+|---|---:|---:|---:|---:|---:|---:|---|
+| QuALITY (500), 256-token native tail + sink template | **.686** | .788 | .635 | **.650** | .712 | .61 | ahead on both |
+| MATH-500, thinking off (500) | .826 | | .83 | .762 | | .80 | behind (14B within noise) |
+| ARC-C, log-likelihood (500) | .468 | .592 | .48 | .416 | .536 | .43 | behind |
+| LongBench v2 (97) | | .402 | .415 | | .361 | .34 | mapped arm OOMed |
+
+The 1.7B alone scores .438 on ARC-C, so the 4B mapping loses to its own source there. The LongBench v2 mapped arms
+ran out of memory at 0.80/0.85 utilization even with 8-layer mapper chunks: with a small target, vLLM fills the share
+with KV cache (65 GB for the 4B) and leaves the connector about 19 GB, while it needs about 25 GB at 32K tokens. The
+8B ran at 0.70; the 32B fits at 0.80 because its weights take most of the share. Rerun them at about 0.60.
 
 ### Qwen2.5-3B -> Qwen2.5-72B in vLLM (OneTriangle's 9.6x pair; Modal B200, FLASH_ATTN on both sides, one request at a time)
 
