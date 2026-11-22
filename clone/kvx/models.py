@@ -68,16 +68,21 @@ def apply_yarn(cfg, factor, orig_ctx=32768):
     return cfg
 
 
-def load_lm(name, dtype=torch.bfloat16, attn="sdpa", yarn=0.0, orig_ctx=32768):
-    """yarn > 0: load with YaRN rope scaling (factor `yarn` over `orig_ctx`), e.g. Qwen3 at 128K: yarn=4."""
+def load_lm(name, dtype=torch.bfloat16, attn="sdpa", yarn=0.0, orig_ctx=32768, device=None):
+    """yarn > 0: load with YaRN rope scaling (factor `yarn` over `orig_ctx`), e.g. Qwen3 at 128K: yarn=4.
+    device: load the weights straight onto that device (device_map) instead of staging the whole model in host RAM
+    (a 32B in bf16 is 65 GB: too much for a 64 GB host)."""
     from transformers import AutoConfig, AutoModelForCausalLM
     name = model_path(name)
     cfg = AutoConfig.from_pretrained(name)
+    kw = dict(dtype=dtype, attn_implementation=attn)
+    if device is not None:
+        kw["device_map"] = str(device)
     if yarn > 0:
         apply_yarn(cfg, yarn, orig_ctx)
-        return AutoModelForCausalLM.from_pretrained(name, config=cfg, dtype=dtype, attn_implementation=attn)
+        return AutoModelForCausalLM.from_pretrained(name, config=cfg, **kw)
     if hasattr(cfg, "text_config") and cfg.architectures and "ConditionalGeneration" in cfg.architectures[0]:
         from transformers import AutoModelForImageTextToText
-        cg = AutoModelForImageTextToText.from_pretrained(name, dtype=dtype, attn_implementation=attn)
+        cg = AutoModelForImageTextToText.from_pretrained(name, **kw)
         return TextLM(cg)
-    return AutoModelForCausalLM.from_pretrained(name, dtype=dtype, attn_implementation=attn)
+    return AutoModelForCausalLM.from_pretrained(name, **kw)

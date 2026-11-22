@@ -205,7 +205,14 @@ def fit_maps(st, R2, k, lam, H, lam_rel=0.0):
         idx = torch.cat([torch.arange(s * ds, (s + 1) * ds, device=dev) for s in sel])
         cols = torch.arange(t * dt, (t + 1) * dt, device=dev)
         dt_ = _solve_dtype(dev, len(idx))
-        A = st.xx[idx[:, None], idx].to(dt_)  # one gather, no row-slab temporary
+        # block copy: xx[idx[:, None], idx] broadcasts two int64 [n, n] index tensors (4.5 GiB at k24 x 1024),
+        # which OOMed the 32B fit on a 96 GB GPU; the result alone is n^2 floats
+        if dev.type == "cuda":
+            torch.cuda.empty_cache()
+        A = torch.empty(len(idx), len(idx), device=dev, dtype=dt_)
+        for i, si in enumerate(sel):
+            for j, sj in enumerate(sel):
+                A[i * ds:(i + 1) * ds, j * ds:(j + 1) * ds] = st.xx[si * ds:(si + 1) * ds, sj * ds:(sj + 1) * ds]
         lm = _lam(A, lam, lam_rel)
         B = st.xy[:, cols][idx].to(dt_)  # columns first: avoids a rows x all-target-columns copy
         W = _ridge(A, B, lm)

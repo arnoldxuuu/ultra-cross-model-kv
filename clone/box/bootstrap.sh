@@ -12,7 +12,7 @@ export HF_HOME=/vol/hf HF_HUB_ENABLE_HF_TRANSFER=1 PYTHONUNBUFFERED=1
 if [ "$WHAT" = fit ] || [ "$WHAT" = both ]; then
   if [ ! -x /venv-fit/bin/python ]; then
     python3 -m venv /venv-fit
-    /venv-fit/bin/pip install -q "torch==2.8.0" "transformers==4.56.2" accelerate "datasets==3.6.0" numpy hf_transfer \
+    /venv-fit/bin/pip install -q "torch==2.8.0" "transformers==4.56.2" accelerate "datasets>=4.0,<4.1" numpy hf_transfer \
       "huggingface-hub<1.0" "math-verify[antlr4_13_2]>=0.7" "rouge-score>=0.1.2" "nltk>=3.8" pytest triton
   fi
 fi

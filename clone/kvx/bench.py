@@ -18,6 +18,26 @@ def hellaswag_items(n):
     return out
 
 
+def arc_items(n, split="test"):
+    """ARC-Challenge, lm-eval style: "Question: ...\nAnswer:" + " " + choice text; acc_norm with norm=True."""
+    from datasets import load_dataset
+    ds = load_dataset("allenai/ai2_arc", "ARC-Challenge", split=split)
+    out = []
+    for ex in ds.select(range(min(n, len(ds)))):
+        labels = list(ex["choices"]["label"])
+        out.append(("Question: " + ex["question"] + "\nAnswer:", [" " + t for t in ex["choices"]["text"]],
+                    labels.index(ex["answerKey"])))
+    return out
+
+
+def piqa_items(n, split="validation"):
+    """PIQA, lm-eval style: "Question: <goal>\nAnswer:" + " " + solution; acc (norm=False)."""
+    from datasets import load_dataset
+    ds = load_dataset("baber/piqa", split=split)
+    return [("Question: " + ex["goal"] + "\nAnswer:", [" " + ex["sol1"], " " + ex["sol2"]], int(ex["label"]))
+            for ex in ds.select(range(min(n, len(ds))))]
+
+
 def mmlu_items(n, shots=5, seed=0):
     from datasets import load_dataset
     test = load_dataset("cais/mmlu", "all", split="test").shuffle(seed=seed).select(range(n))
