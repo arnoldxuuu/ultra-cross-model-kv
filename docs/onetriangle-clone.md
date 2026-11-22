@@ -221,6 +221,20 @@ Reading: plain ridge maps beat OneTriangle's KL-distilled generic adapter on QuA
 on ContractNLI, LongBench v2 and HellaSwag; on this pair the 1.7B prefill is a third of the 8B's native prefill at 32K,
 which caps the speedup. Next levers: KL map distillation (xkv's works) and a sparse k16 mapper.
 
+### OneTriangle's ladder, Qwen3-1.7B -> Qwen3-32B column (EC2 g7e, 1x RTX PRO 6000 96 GB, spot $2.28/h, ~$13)
+
+Maps: k24 from 2000 mixed calibration sequences (two passes and maps offloaded to host between solves to fit the 32B
+on one 96 GB GPU). vLLM 0.34 at gpu_memory_utilization 0.80: 0.88 left the connector too little, 0.75-0.78 too little
+KV cache for one 33K-token request.
+
+| suite (OneTriangle's n) | mapped | native | OneTriangle ladder 1.7B->32B (their native) | verdict |
+|---|---:|---:|---:|---|
+| QuALITY (500), 256-token native tail + sink template | **.674** | .83 | .645 (.81) | ahead |
+| ARC-C, log-likelihood (500) | **.488** | .606 | .455 (.565) | ahead |
+| MATH-500, thinking off (500) | .766 | | .83 (.865) | behind |
+| LongBench v2 (97) | | .423 | .33 (.425) | mapped run not finished |
+| MATH-500 / ZebraLogic, thinking on | | | .935 / .58 | not run |
+
 ### Qwen2.5-3B -> Qwen2.5-72B in vLLM (OneTriangle's 9.6x pair; Modal B200, FLASH_ATTN on both sides, one request at a time)
 
 | Prompt | Native vLLM | Mapped (fp8 k16 maps, sink template, 256-token native tail) | Speedup |
