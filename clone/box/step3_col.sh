@@ -12,11 +12,14 @@ J() { python3 -c "import json,sys; print(json.dumps(json.loads(sys.argv[1])))" "
 echo "== fit $(date -u +%H:%M)" >> $LOG
 [ -f $MAPS ] || /venv-fit/bin/python run_local.py modal_fit_eval:fit_eval_impl --json "$(J "{\"src\":\"$SRC\",\"tgt\":\"$TGT\",\"n_calib\":$NC,\"ks\":\"24\",\"modes\":\"rms\",\"tails\":\"64\",\"sinks\":\"4\",\"calib_src\":\"mix\",\"save_maps\":1,\"run_id\":\"$RID\",\"n_eval\":32,\"one_pass_\":$OP,\"offload_maps\":$OP0}")" >> $LOG 2>&1
 UT=0.85; [ "$T" = 32B ] && UT=0.80   # 0.88 starves the connector (OOM); 0.78 leaves 7.1 GiB KV, 8.25 needed at 33K
+# long suites (32K prompts): the connector needs ~25 GB outside vLLM's share. Small targets let vLLM fill the share
+# with KV cache (65 GB for 4B), so 0.80/0.85 OOMed on 4B and 14B; 0.60 leaves ~38 GB. 32B stays at 0.80 (weights).
+UL=0.60; [ "$T" = 32B ] && UL=0.80
 run() { local tag; tag=$(python3 -c "import json,sys;print(json.loads(sys.argv[1])['tag'])" "$(J "$2")")
   [ -f /vol/runs/oteval/$tag.json ] && { echo "== $1 skipped (have $tag)" >> $LOG; return; }
   echo "== $1 $(date -u +%H:%M)" >> $LOG; /venv-serve/bin/python run_local.py kvx.oteval:oteval_impl --json "$(J "$2")" >> $LOG 2>&1; }
 for MODE in native mapped; do
-  run "long $MODE" "{\"tgt\":\"$TGT\",\"mode\":\"$MODE\",\"src\":\"$SRC\",\"maps\":\"$MAPS\",\"sink\":\"$SINK\",\"suites\":\"QuALITY,LongBench v2\",\"limits\":\"{\\\"QuALITY\\\":500,\\\"LongBench v2\\\":97}\",\"tail\":256,\"min_len\":512,\"util\":$UT,\"tag\":\"col$T-$MODE-long\"}"
+  run "long $MODE" "{\"tgt\":\"$TGT\",\"mode\":\"$MODE\",\"src\":\"$SRC\",\"maps\":\"$MAPS\",\"sink\":\"$SINK\",\"suites\":\"QuALITY,LongBench v2\",\"limits\":\"{\\\"QuALITY\\\":500,\\\"LongBench v2\\\":97}\",\"tail\":256,\"min_len\":512,\"util\":$UL,\"chunk\":8,\"tag\":\"col$T-$MODE-long\"}"
   [ "$MODE" = native ] && continue   # verdicts compare mapped vs theirs; native arms only for the long suites
   run "math off $MODE" "{\"tgt\":\"$TGT\",\"mode\":\"$MODE\",\"src\":\"$SRC\",\"maps\":\"$MAPS\",\"suites\":\"MATH-500\",\"limits\":\"{\\\"MATH-500\\\":500}\",\"tail\":16,\"min_len\":32,\"util\":$UT,\"tag\":\"col$T-$MODE-math\"}"
 done
