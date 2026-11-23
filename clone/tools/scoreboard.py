@@ -82,6 +82,19 @@ def parse_bundle(path):
     return rows
 
 
+def best_seat_entry(row, cands):
+    """Several seats measured the same row: keep the better value (row direction), preferring entries whose N meets
+    theirs; blocked/hold entries only when no seat has a plain measurement. First seat wins ties (old behaviour)."""
+    if len(cands) == 1 or row is None or row.get("direction") not in ("higher", "lower"):
+        return cands[0]
+    plain = [c for c in cands if c.get("value") is not None and not c.get("blocked") and c.get("quality_ok") is not False]
+    if not plain:
+        return cands[0]
+    n_ok = [c for c in plain if not (row.get("n") and c.get("n") and c["n"] < row["n"])] or plain
+    sign = 1 if row["direction"] == "higher" else -1
+    return max(n_ok, key=lambda c: (sign * c["value"], -n_ok.index(c)))
+
+
 def status(row, ours):
     if row.get("direction") == "context":
         return "context"
@@ -147,11 +160,17 @@ def main():
         p = re.sub(r"\s*->\s*", " -> ", p)
         r["pair"] = " -> ".join(re.sub(r"[\s_]+", "-", side.strip()) for side in p.split(" -> "))
     ours = json.load(open(a.ours)) if os.path.exists(a.ours) else {}
-    # each seat reports its rows in <data>/seats/<seat>/ours.json (same keys); the lead's own file wins on conflicts
+    # each seat reports its rows in <data>/seats/<seat>/ours.json (same keys); the lead's own file wins on conflicts,
+    # and between seats the better measurement wins (by the row's direction, among entries with N >= theirs)
     import glob
+    cands = {}
     for f in sorted(glob.glob(os.path.join(os.path.dirname(a.ours), "seats", "*", "ours.json"))):
         for k, v in json.load(open(f)).items():
-            ours.setdefault(k, dict(v, seat=f.split(os.sep)[-2]))
+            cands.setdefault(k, []).append(dict(v, seat=f.split(os.sep)[-2]))
+    byid = {r["id"]: r for r in rows}
+    for k, cs in cands.items():
+        if k not in ours:
+            ours[k] = best_seat_entry(byid.get(k), cs)
     for r in rows:
         r["ours"] = ours.get(r["id"])
         r["status"] = status(r, ours)
