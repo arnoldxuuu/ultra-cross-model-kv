@@ -61,7 +61,7 @@ def mmlu_items(n, shots=5, seed=0):
 
 
 @torch.no_grad()
-def score_item(tok, S, T, ctx, conts, method, cs, ss, ct, st, dev, tail=1):
+def score_item(tok, S, T, ctx, conts, method, cs, ss, ct, st, dev, tail=1, first=0):
     """Return per-continuation (sum logprob, n chars). method: callable(Ks,Vs)->(K,V) mapped, 'native' or 'source'."""
     c_ids = tok(ctx, add_special_tokens=False)["input_ids"]
     if tok.bos_token_id is not None and "qwen" not in tok.name_or_path.lower():
@@ -81,6 +81,12 @@ def score_item(tok, S, T, ctx, conts, method, cs, ss, ct, st, dev, tail=1):
         pre = torch.tensor([c_ids[:-nt]], device=dev)
         Ks, Vs, _ = core.capture_kv(S, pre, cs, ss)
         K, V = method(Ks, Vs)
+        f = min(first, len(c_ids) - nt)
+        if f > 0:  # the first f context tokens from the target itself (causal: exact), the rest mapped
+            Kt, Vt, _ = core.capture_kv(T, pre[:, :f], ct, st)
+            K, V = K.clone(), V.clone()
+            K[..., :f, :] = Kt.to(K.dtype)
+            V[..., :f, :] = Vt.to(V.dtype)
         K = K.expand(-1, n, -1, -1, -1).contiguous()
         V = V.expand(-1, n, -1, -1, -1).contiguous()
         cache = core.build_cache(K, V, ct, st)
@@ -94,11 +100,11 @@ def score_item(tok, S, T, ctx, conts, method, cs, ss, ct, st, dev, tail=1):
     return scores
 
 
-def run(tok, S, T, items, methods, cs, ss, ct, st, dev, norm=True, tail=1):
+def run(tok, S, T, items, methods, cs, ss, ct, st, dev, norm=True, tail=1, first=0):
     acc = {m: 0 for m in methods}
     for ctx, conts, label in items:
         for name, meth in methods.items():
-            sc = score_item(tok, S, T, ctx, conts, meth, cs, ss, ct, st, dev, tail=tail)
+            sc = score_item(tok, S, T, ctx, conts, meth, cs, ss, ct, st, dev, tail=tail, first=first)
             if norm:
                 sc = [s / max(1, len(c)) for s, c in zip(sc, conts)]
             acc[name] += int(max(range(len(sc)), key=lambda i: sc[i]) == label)

@@ -139,6 +139,22 @@ def load_code(tok, n, L, shards=(1, 2, 3)):
     return out
 
 
+def load_math(tok, n, L, files=("data/train-00000-of-00114-5a023365406cb9c4.parquet",
+                                   "data/train-00001-of-00114-e32fc2813a15f61c.parquet")):
+    """n calibration sequences of L tokens from OpenWebMath (math web pages with LaTeX), documents joined with EOS."""
+    from datasets import load_dataset
+    urls = [f"https://huggingface.co/datasets/open-web-math/open-web-math/resolve/main/{f}" for f in files]
+    ds = load_dataset("parquet", data_files=urls, split="train", streaming=True)
+    out, buf, eos = [], [], tok.eos_token_id
+    for ex in ds:
+        buf += tok(ex["text"], add_special_tokens=False)["input_ids"] + [eos]
+        while len(buf) >= L:
+            out.append(buf[:L]); buf = buf[L:]
+            if len(out) >= n:
+                return out
+    return out
+
+
 def load_long(tok, n, Lx):
     """n sequences of Lx tokens: PG19 test books, else concatenated FineWeb-Edu docs."""
     from datasets import load_dataset
@@ -221,6 +237,15 @@ def fit_eval_impl(src: str, tgt: str, n_calib: int = 500, L: int = 1024, stride:
                                     torch.tensor(cached(tok, f"code_{n_calib - 2 * (n_calib // 3)}x{L}_bos{bos}",
                                                         lambda: load_code(tok, n_calib - 2 * (n_calib // 3), L)))]).tolist()
                          if calib_src == "mixcode" else
+                         torch.cat([torch.tensor(cached(tok, f"calib_{n_calib // 4}x{L}_bos{bos}",
+                                                        lambda: load_texts(tok, n_calib // 4, L, exclude=EVAL_DOCS))),
+                                    torch.tensor(cached(tok, f"pg19train_{n_calib // 4}x{L}_bos{bos}",
+                                                        lambda: load_pg19_train(tok, n_calib // 4, L, per_book=32))),
+                                    torch.tensor(cached(tok, f"code_{n_calib // 4}x{L}_bos{bos}",
+                                                        lambda: load_code(tok, n_calib // 4, L))),
+                                    torch.tensor(cached(tok, f"math_{n_calib - 3 * (n_calib // 4)}x{L}_bos{bos}",
+                                                        lambda: load_math(tok, n_calib - 3 * (n_calib // 4), L)))]).tolist()
+                         if calib_src == "mixall" else
                          load_concat(tok, n_calib, L) if calib_concat else
                          cached(tok, f"calib_{n_calib}x{L}_bos{bos}",
                                 lambda: load_texts(tok, n_calib, L, exclude=EVAL_DOCS, info=cinfo)))

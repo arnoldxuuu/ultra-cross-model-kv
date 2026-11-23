@@ -178,7 +178,8 @@ def oteval_hf_impl(src: str, tgt: str, maps: str = "", mode: str = "mapped", sui
 
 
 def loglik_impl(src: str, tgt: str, maps: str, suites: str = "ARC-Challenge,HellaSwag,PIQA", n: int = 500,
-                tail: int = 1, restore: str = "rms", tag: str = "", device: str = "cuda"):
+                tail: int = 1, restore: str = "rms", tag: str = "", device: str = "cuda", first: int = 0,
+                methods: str = "native,source,mapped"):
     """OneTriangle's short-context suites scored lm-eval style (log-likelihood of each choice; acc_norm for ARC-C and
     HellaSwag, acc for PIQA). Their native numbers (8B: ARC-C .54, HellaSwag .745, PIQA .79) match this scoring, not
     chat letters. Mapped = the whole context except `tail` tokens comes from the source through the maps."""
@@ -207,10 +208,11 @@ def loglik_impl(src: str, tgt: str, maps: str, suites: str = "ARC-Challenge,Hell
     with torch.no_grad():
         for name in [x.strip() for x in suites.split(",") if x.strip()]:
             fn, norm = loaders[name]
-            res[name] = bench.run(tok, S, T, fn(n), {"native": "native", "source": "source", "mapped": mapped},
-                                  cs, ss, ct, st, device, norm=norm, tail=tail)
+            allm = {"native": "native", "source": "source", "mapped": mapped}
+            res[name] = bench.run(tok, S, T, fn(n), {m: allm[m] for m in methods.split(",")},
+                                  cs, ss, ct, st, device, norm=norm, tail=tail, first=first)
             print(json.dumps({name: res[name]}), flush=True)
-    meta = dict(src=src, tgt=tgt, maps=maps, n=n, tail=tail, restore=restore, scoring="loglik (lm-eval style)")
+    meta = dict(src=src, tgt=tgt, maps=maps, n=n, tail=tail, first=first, restore=restore, scoring="loglik (lm-eval style)")
     os.makedirs("/vol/runs/oteval", exist_ok=True)
     p = f"/vol/runs/oteval/{tag or (tgt.split('/')[-1] + '-loglik')}.json"
     json.dump(dict(meta=meta, results=res), open(p, "w"), indent=1)

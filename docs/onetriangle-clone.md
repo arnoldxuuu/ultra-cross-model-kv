@@ -275,6 +275,39 @@ retention to 84-87% at a 1024-token native tail (the code right above the functi
 below it). QuALITY with the same maps: 4B .626, 8B .684, 14B .684 (web+book maps: .650, .674, .686). Runs g7e-tp
 ($5.46) and g7e-mixcode ($3.04); the CPU scoring box is a c7i.4xlarge at $0.71/h.
 
+### Calibration mix, native first tokens and reasoning budget (EC2 g7e spot, 1x RTX PRO 6000, $2.31/h)
+
+`calib_src=mixall`: quarters of FineWeb-Edu, PG19, Python (codeparrot, DevEval repos excluded) and OpenWebMath, k24,
+4000 sequences (32B: 2000, maps offloaded during the solve). Same eval settings as the ladder columns above.
+
+| row (OneTriangle ladder mapped) | 4B | 8B | 14B | 32B |
+|---|---:|---:|---:|---:|
+| MATH-500, reasoning off: web+book maps | .762 | .778 | .826 | .766 |
+| MATH-500, reasoning off: mixall maps (OT .80 / .82 / .83 / .83) | **.802** | .808 | **.844** | .822 |
+| QuALITY: mixall maps (OT .61 / .635 / .635 / .645) | **.634** | **.678** | **.674** | **.678** |
+| DevEval, reasoning off, tail 1024: mixall maps (OT .30 / .31 / .34 / .36) | | | **.400** | **.450** |
+| DevEval, reasoning on, 12288 new tokens: mixall maps (OT .32 / .315 / .39 / .40) | .284 | **.342** | | |
+| DevEval, reasoning on, 6144 new tokens: mixcode maps | .266 | .294 | **.416** | |
+
+Reasoning on, many replies run out of tokens before closing their reasoning (4B: 229 of 500 at 6144, 201 at
+12288; 8B: 186 -> 132); those count as failures. 32B MATH .822 and 8B .808 are inside the 95% interval of OneTriangle's
+numbers. On the 1.7B->8B section the mixall maps give BAMBOO .810 (was .798), ContractNLI .586 (same), LongBench
+v2 .258 (was .278).
+
+lm-eval-style log-likelihood with the first k context tokens taken from the target itself (`loglik_impl(first=k)`,
+exact because attention is causal; OneTriangle computes the first token natively too). ARC-C contexts are short
+(31.7 tokens on average), so k changes the mapped share a lot:
+
+| ARC-C loglik (OT ladder 4B .43, 14B .48) | k = 0 | k = 4 (79% mapped) | k = 16 (35% mapped) |
+|---|---:|---:|---:|
+| 4B, web+book maps | .416 | .432 | .472 |
+| 14B, web+book maps | .468 | .458 | .516 |
+| 4B / 14B / 8B, mixall maps | | .430 / .460 / .440 | |
+
+8B HellaSwag / PIQA (OT generic .685 / .775): .564 / .768 at k = 1, .598 / .768 at k = 4 (native .650 / .776).
+Runs g7e-mixcode ($3.04), g7e-devthink ($8.06), g7e-mixall ($8.75), g7e-mixall32 ($4.98); DevEval scoring on a
+c7i.4xlarge ($9.60 for 13.45 h).
+
 ### Prefill throughput and $/1M prompt tokens at concurrency > 1 (EC2 g7e spot, 1x RTX PRO 6000, $2.31/h)
 
 `clone/kvx/throughput.py`: closed batches of c requests of random tokens (no prefix reuse), one output token, native
